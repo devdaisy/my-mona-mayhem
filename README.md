@@ -6,7 +6,7 @@
 
 A workshop template for building a retro arcade-themed website with Astro that compares GitHub contribution graphs of two users. This is the **starting point** — you'll build the app step by step using GitHub Copilot.
 
-![Mona Mayhem Screenshot](https://github.com/user-attachments/assets/5eca79e2-cb9f-4e93-aa0d-23666ebde3b7)
+![Mona Mayhem Screenshot](screenshot.png)
 *What you'll build by the end of the workshop*
 
 ## 📚 Workshop
