@@ -9,9 +9,679 @@
 		<meta name="viewport" content="width=device-width" />
 		<meta name="generator" content={Astro.generator} />
 		<title>Mona Mayhem</title>
+		<link
+			href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap"
+			rel="stylesheet"
+		/>
 	</head>
 	<body>
-		<h1>Mona Mayhem</h1>
-		<p>Welcome to Mona Mayhem! Time to build a GitHub Contribution Battle Arena.</p>
+		<header>
+			<h1>Mona Mayhem</h1>
+			<p class="subtitle">GitHub Contribution Battle Arena</p>
+		</header>
+
+		<main>
+			<form id="battle-form">
+				<div class="players">
+					<div class="player">
+						<label for="player1">Player 1</label>
+						<input
+							id="player1"
+							name="player1"
+							type="text"
+							placeholder="github username"
+							autocomplete="off"
+							required
+						/>
+					</div>
+
+					<span class="vs">VS</span>
+
+					<div class="player">
+						<label for="player2">Player 2</label>
+						<input
+							id="player2"
+							name="player2"
+							type="text"
+							placeholder="github username"
+							autocomplete="off"
+							required
+						/>
+					</div>
+				</div>
+
+				<button type="submit" id="battle-btn">⚔ BATTLE ⚔</button>
+			</form>
+
+			<p id="error-msg" hidden></p>
+
+			<section id="results" hidden>
+				<div id="p1-result" class="player-result"></div>
+				<div class="vs-divider"><span>VS</span></div>
+				<div id="p2-result" class="player-result"></div>
+				<div id="winner-banner"></div>
+			</section>
+		</main>
+
+		<style is:global>
+			/* ── Custom properties ───────────────────────────────────────────────── */
+
+			:root {
+				--pink:   #ff2d78;
+				--indigo: #4b0eff;
+				--bg:     #0a0a1a;
+				--dim:    #12122a;
+			}
+
+			/* ── Reset ───────────────────────────────────────────────────────────── */
+
+			*,
+			*::before,
+			*::after {
+				box-sizing: border-box;
+				margin: 0;
+				padding: 0;
+			}
+
+			/* ── CRT scanlines ───────────────────────────────────────────────────── */
+
+			body::before {
+				content: '';
+				position: fixed;
+				inset: 0;
+				pointer-events: none;
+				z-index: 999;
+				background: repeating-linear-gradient(
+					to bottom,
+					transparent 0px,
+					transparent 2px,
+					rgba(0, 0, 0, 0.18) 2px,
+					rgba(0, 0, 0, 0.18) 4px
+				);
+			}
+
+			/* ── Base ────────────────────────────────────────────────────────────── */
+
+			body {
+				background: var(--bg);
+				color: var(--pink);
+				font-family: 'Press Start 2P', monospace;
+				min-height: 100vh;
+				padding: 2rem 1rem;
+			}
+
+			/* ── Header ──────────────────────────────────────────────────────────── */
+
+			header {
+				text-align: center;
+				margin-bottom: 3rem;
+			}
+
+			@keyframes neon-pulse {
+				0%, 100% {
+					text-shadow:
+						0 0 6px  var(--pink),
+						0 0 20px var(--pink),
+						0 0 40px var(--pink);
+				}
+				50% {
+					text-shadow:
+						0 0 2px  var(--pink),
+						0 0 6px  var(--pink);
+				}
+			}
+
+			h1 {
+				font-size: clamp(1.2rem, 4vw, 2.5rem);
+				color: var(--pink);
+				animation: neon-pulse 2.4s ease-in-out infinite;
+				margin-bottom: 0.75rem;
+			}
+
+			.subtitle {
+				font-size: clamp(0.5rem, 2vw, 0.75rem);
+				color: #666;
+			}
+
+			/* ── Layout ──────────────────────────────────────────────────────────── */
+
+			main {
+				max-width: 900px;
+				margin: 0 auto;
+				padding-bottom: 4rem;
+			}
+
+			/* ── Form ────────────────────────────────────────────────────────────── */
+
+			.players {
+				display: flex;
+				align-items: flex-end;
+				justify-content: center;
+				gap: 2rem;
+				flex-wrap: wrap;
+				margin-bottom: 2rem;
+			}
+
+			@keyframes float-in {
+				from {
+					opacity: 0;
+					transform: translateY(20px);
+				}
+				to {
+					opacity: 1;
+					transform: translateY(0);
+				}
+			}
+
+			.player {
+				display: flex;
+				flex-direction: column;
+				gap: 0.75rem;
+			}
+
+			/* Staggered float-in: target 1st and 3rd children of .players */
+			.players > .player:first-child {
+				animation: float-in 0.6s ease 0s both;
+			}
+
+			.players > .player:last-child {
+				animation: float-in 0.6s ease 0.2s both;
+			}
+
+			label {
+				font-size: 0.65rem;
+				color: var(--pink);
+			}
+
+			input {
+				background: var(--dim);
+				border: 2px solid var(--pink);
+				color: var(--pink);
+				font-family: 'Press Start 2P', monospace;
+				font-size: 0.65rem;
+				padding: 0.6rem 0.75rem;
+				width: 200px;
+				outline: none;
+				transition: box-shadow 0.2s;
+			}
+
+			input:focus {
+				box-shadow: 0 0 10px var(--pink), 0 0 20px rgba(255, 45, 120, 0.3);
+			}
+
+			.vs {
+				font-size: 1.25rem;
+				color: var(--pink);
+				text-shadow: 0 0 8px var(--pink);
+				padding-bottom: 0.4rem;
+			}
+
+			/* ── Button ──────────────────────────────────────────────────────────── */
+
+			@keyframes loading-shift {
+				0%, 100% {
+					color: var(--pink);
+					border-color: var(--pink);
+					box-shadow: 0 0 10px var(--pink);
+				}
+				50% {
+					color: var(--indigo);
+					border-color: var(--indigo);
+					box-shadow: 0 0 10px var(--indigo);
+				}
+			}
+
+			button {
+				display: block;
+				margin: 0 auto;
+				background: var(--bg);
+				border: 3px solid var(--pink);
+				color: var(--pink);
+				font-family: 'Press Start 2P', monospace;
+				font-size: 0.8rem;
+				padding: 0.75rem 2rem;
+				cursor: pointer;
+				transition: box-shadow 0.15s;
+			}
+
+			button:hover:not(:disabled) {
+				box-shadow: 0 0 20px var(--pink), 0 0 40px rgba(255, 45, 120, 0.4);
+			}
+
+			button:disabled {
+				cursor: not-allowed;
+				animation: loading-shift 0.8s ease-in-out infinite;
+			}
+
+			/* ── Error ───────────────────────────────────────────────────────────── */
+
+			#error-msg {
+				text-align: center;
+				color: #ff4444;
+				font-size: 0.6rem;
+				margin-top: 2rem;
+				line-height: 1.8;
+			}
+
+			/* ── Results ─────────────────────────────────────────────────────────── */
+
+			#results {
+				margin-top: 3rem;
+			}
+
+			/* ── Player result cards ─────────────────────────────────────────────── */
+
+			@keyframes shimmer {
+				0%   { background-position: 200% 0; }
+				100% { background-position: -200% 0; }
+			}
+
+			.player-result {
+				position: relative;
+				overflow: hidden;
+				border: 2px solid var(--indigo);
+				padding: 1.25rem;
+				background: var(--dim);
+			}
+
+			.player-result::after {
+				content: '';
+				position: absolute;
+				inset: 0;
+				background: linear-gradient(
+					120deg,
+					transparent 25%,
+					rgba(255, 255, 255, 0.06) 50%,
+					transparent 75%
+				);
+				background-size: 200% 100%;
+				animation: shimmer 2.5s ease-in-out infinite;
+				pointer-events: none;
+			}
+
+			/* ── Rainbow winner border ──────────────────────────────────────────────── */
+
+			@property --rainbow-angle {
+				syntax: '<angle>';
+				inherits: false;
+				initial-value: 0deg;
+			}
+
+			@keyframes rainbow-spin {
+				to { --rainbow-angle: 360deg; }
+			}
+
+			.player-result.winner {
+				--rainbow-angle: 0deg;
+				border: 3px solid transparent;
+				border-image: conic-gradient(
+					from var(--rainbow-angle),
+					#ff0000, #ff8000, #ffff00, #00ff00,
+					#00ffff, #0055ff, #8b00ff, #ff0000
+				) 1;
+				box-shadow: none;
+				animation: rainbow-spin 1.5s linear infinite;
+			}
+
+			.player-header {
+				display: flex;
+				align-items: baseline;
+				justify-content: space-between;
+				flex-wrap: wrap;
+				gap: 0.75rem;
+				margin-bottom: 1rem;
+			}
+
+			.player-username {
+				font-size: 0.75rem;
+				color: #fff;
+				word-break: break-all;
+			}
+
+			.player-result.winner .player-username {
+				color: #fff;
+				text-shadow: 0 0 8px #fff;
+			}
+
+			.player-stats {
+				display: flex;
+				align-items: baseline;
+				gap: 0.6rem;
+				flex-wrap: wrap;
+			}
+
+			.stat-value {
+				font-size: 1rem;
+				color: var(--pink);
+			}
+
+			.player-result.winner .stat-value {
+				color: #fff;
+			}
+
+			.stat-label {
+				font-size: 0.45rem;
+				color: #888;
+			}
+
+			.stat-date {
+				font-size: 0.4rem;
+				color: #555;
+			}
+
+			/* ── Contribution graph ──────────────────────────────────────────────── */
+
+			.graph-scroll {
+				overflow-x: auto;
+				padding-bottom: 0.25rem;
+			}
+
+			.contribution-grid {
+				display: grid;
+				grid-template-rows: repeat(7, 10px);
+				grid-auto-flow: column;
+				grid-auto-columns: 10px;
+				gap: 2px;
+			}
+
+			.day-cell {
+				width: 10px;
+				height: 10px;
+				border-radius: 2px;
+				transition: transform 0.1s, box-shadow 0.1s;
+			}
+
+			.day-cell:hover {
+				transform: scale(1.4);
+				box-shadow: 0 0 6px rgba(255, 255, 255, 0.8);
+				position: relative;
+				z-index: 1;
+			}
+
+			.no-data {
+				font-size: 0.5rem;
+				color: #555;
+			}
+
+			/* ── VS divider ──────────────────────────────────────────────────────── */
+
+			.vs-divider {
+				display: flex;
+				align-items: center;
+				justify-content: center;
+				padding: 1.5rem 0;
+			}
+
+			@keyframes vs-glow {
+				0%, 100% {
+					color: var(--pink);
+					border-color: var(--pink);
+					text-shadow: 0 0 16px var(--pink), 0 0 32px var(--pink);
+				}
+				50% {
+					color: var(--indigo);
+					border-color: var(--indigo);
+					text-shadow: 0 0 16px var(--indigo), 0 0 32px var(--indigo);
+				}
+			}
+
+			.vs-divider span {
+				font-size: 1.5rem;
+				border: 3px solid var(--pink);
+				padding: 0.5rem 1.25rem;
+				animation: vs-glow 1.8s ease-in-out infinite;
+			}
+
+			/* ── Winner banner ───────────────────────────────────────────────────── */
+
+			#winner-banner {
+				margin-top: 2rem;
+				text-align: center;
+				line-height: 2.5;
+				font-size: 0.65rem;
+			}
+
+			#winner-banner .crown {
+				font-size: 2rem;
+				display: block;
+			}
+
+			#winner-banner .winner-name {
+				color: #ffd700;
+				text-shadow: 0 0 10px #ffd700;
+			}
+
+			#winner-banner .tie-msg {
+				color: var(--pink);
+			}
+		</style>
+
+		<script>
+			// ── Types ──────────────────────────────────────────────────────────────
+
+			interface ContributionDay {
+				weekday: number; // 0 = Sunday … 6 = Saturday
+				count: number;
+				level: number;   // 0–4, matches index into colors_full
+			}
+
+			interface ContributionWeek {
+				index: number;
+				first_day: string; // "YYYY-MM-DD" — always the Sunday of that week
+				contribution_days: ContributionDay[];
+			}
+
+			interface ContributionData {
+				total_contributions: number;
+				colors_full: string[];      // 5 hex strings, one per level
+				weeks: ContributionWeek[];
+				from: string;               // "YYYY-MM-DD"
+				to: string;                 // "YYYY-MM-DD"
+			}
+
+			// ── Helpers ────────────────────────────────────────────────────────────
+
+			/** Derive the ISO date of a day cell from its week's first_day + weekday offset. */
+			function cellDate(firstDay: string, weekday: number): string {
+				const [y, m, d] = firstDay.split('-').map(Number);
+				const date = new Date(y, m - 1, d + weekday);
+				return date.toISOString().slice(0, 10);
+			}
+
+			function formatMonthYear(dateStr: string): string {
+				const [y, m, d] = dateStr.split('-').map(Number);
+				return new Date(y, m - 1, d).toLocaleDateString('en-US', {
+					month: 'short',
+					year: 'numeric',
+				});
+			}
+
+			// ── Graph rendering ────────────────────────────────────────────────────
+
+			function buildGrid(data: ContributionData): HTMLElement {
+				const { weeks, colors_full } = data;
+				const colors = colors_full.length === 5 ? colors_full : [
+					'#161b22', '#0e4429', '#006d32', '#26a641', '#39d353',
+				];
+
+				const grid = document.createElement('div');
+				grid.className = 'contribution-grid';
+
+				for (const week of weeks) {
+					// Build a lookup so we can fill all 7 row slots, even for partial weeks
+					const byDow = new Map<number, ContributionDay>(
+						week.contribution_days.map(day => [day.weekday, day])
+					);
+
+					for (let dow = 0; dow < 7; dow++) {
+						const cell = document.createElement('div');
+						cell.className = 'day-cell';
+
+						const day = byDow.get(dow);
+						if (day) {
+							cell.style.background = colors[Math.min(day.level, 4)];
+							const iso = cellDate(week.first_day, dow);
+							cell.title = `${iso}: ${day.count} contribution${day.count !== 1 ? 's' : ''}`;
+						} else {
+							cell.style.background = 'transparent';
+						}
+
+						grid.appendChild(cell);
+					}
+				}
+
+				return grid;
+			}
+
+			// ── Player panel rendering ─────────────────────────────────────────────
+
+			function renderPlayerResult(
+				el: HTMLElement,
+				username: string,
+				data: ContributionData,
+				isWinner: boolean,
+			): void {
+				el.className = 'player-result' + (isWinner ? ' winner' : '');
+
+				// Header: username + stats
+				const header = document.createElement('div');
+				header.className = 'player-header';
+
+				const nameEl = document.createElement('div');
+				nameEl.className = 'player-username';
+				nameEl.textContent = username;
+
+				const stats = document.createElement('div');
+				stats.className = 'player-stats';
+
+				const valEl = document.createElement('span');
+				valEl.className = 'stat-value';
+				valEl.textContent = data.total_contributions.toLocaleString();
+
+				const labelEl = document.createElement('span');
+				labelEl.className = 'stat-label';
+				labelEl.textContent = 'contributions';
+
+				const dateEl = document.createElement('span');
+				dateEl.className = 'stat-date';
+				dateEl.textContent = `${formatMonthYear(data.from)} – ${formatMonthYear(data.to)}`;
+
+				stats.append(valEl, labelEl, dateEl);
+				header.append(nameEl, stats);
+
+				// Graph
+				const graphScroll = document.createElement('div');
+				graphScroll.className = 'graph-scroll';
+
+				if (data.weeks.length) {
+					graphScroll.appendChild(buildGrid(data));
+				} else {
+					const noData = document.createElement('p');
+					noData.className = 'no-data';
+					noData.textContent = 'No contribution data available.';
+					graphScroll.appendChild(noData);
+				}
+
+				el.replaceChildren(header, graphScroll);
+			}
+
+			// ── Battle logic ───────────────────────────────────────────────────────
+
+			const form           = document.getElementById('battle-form')   as HTMLFormElement;
+			const btn            = document.getElementById('battle-btn')    as HTMLButtonElement;
+			const errorMsg       = document.getElementById('error-msg')     as HTMLParagraphElement;
+			const resultsSection = document.getElementById('results')       as HTMLElement;
+			const p1El           = document.getElementById('p1-result')     as HTMLElement;
+			const p2El           = document.getElementById('p2-result')     as HTMLElement;
+			const winnerBanner   = document.getElementById('winner-banner') as HTMLElement;
+
+			function showError(msg: string): void {
+				errorMsg.textContent = msg;
+				errorMsg.hidden = false;
+				resultsSection.hidden = true;
+			}
+
+			async function runBattle(): Promise<void> {
+				const p1Input = document.getElementById('player1') as HTMLInputElement;
+				const p2Input = document.getElementById('player2') as HTMLInputElement;
+				const p1 = p1Input.value.trim();
+				const p2 = p2Input.value.trim();
+
+				if (!p1 || !p2) {
+					showError(!p1 ? 'Player 1 username is required.' : 'Player 2 username is required.');
+					return;
+				}
+
+				btn.disabled = true;
+				btn.textContent = '⏳ BATTLING…';
+				errorMsg.hidden = true;
+				resultsSection.hidden = true;
+
+				try {
+					const [res1, res2] = await Promise.all([
+						fetch(`/api/contributions/${encodeURIComponent(p1)}`),
+						fetch(`/api/contributions/${encodeURIComponent(p2)}`),
+					]);
+
+					// Surface API error messages when available
+					if (!res1.ok) {
+						const body = await res1.json().catch(() => ({})) as { error?: string };
+						throw new Error(body.error ?? `Could not fetch data for "${p1}" (${res1.status})`);
+					}
+					if (!res2.ok) {
+						const body = await res2.json().catch(() => ({})) as { error?: string };
+						throw new Error(body.error ?? `Could not fetch data for "${p2}" (${res2.status})`);
+					}
+
+					const [data1, data2] = await Promise.all([
+						res1.json() as Promise<ContributionData>,
+						res2.json() as Promise<ContributionData>,
+					]);
+
+					const t1 = data1.total_contributions;
+					const t2 = data2.total_contributions;
+					const p1Wins = t1 > t2;
+					const p2Wins = t2 > t1;
+
+					renderPlayerResult(p1El, p1, data1, p1Wins);
+					renderPlayerResult(p2El, p2, data2, p2Wins);
+
+					// Winner banner
+					winnerBanner.innerHTML = '';
+					if (p1Wins || p2Wins) {
+						const winner = p1Wins ? p1 : p2;
+						const crown = document.createElement('span');
+						crown.className = 'crown';
+						crown.textContent = '👑';
+
+						const nameEl = document.createElement('span');
+						nameEl.className = 'winner-name';
+						nameEl.textContent = winner;
+
+						const label = document.createTextNode(' WINS!');
+
+						winnerBanner.append(crown, nameEl, label);
+					} else {
+						const tie = document.createElement('span');
+						tie.className = 'tie-msg';
+						tie.textContent = "🤝 IT'S A TIE! 🤝";
+						winnerBanner.appendChild(tie);
+					}
+
+					resultsSection.hidden = false;
+					resultsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+				} catch (err) {
+					showError(err instanceof Error ? err.message : 'Something went wrong. Try again.');
+				} finally {
+					btn.disabled = false;
+					btn.textContent = '⚔ BATTLE ⚔';
+				}
+			}
+
+			form.addEventListener('submit', (e) => {
+				e.preventDefault();
+				runBattle();
+			});
+		</script>
 	</body>
 </html>
